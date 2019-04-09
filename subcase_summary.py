@@ -9,7 +9,7 @@ import pprint
 import mysql.connector
 
 def formData(input='default', *subcase_info):
-    print("formData")
+#    print("formData")
     if subcase_info != ():
         subcase_info = subcase_info[0]
         case_no = subcase_info[0]
@@ -101,7 +101,6 @@ def getToForm():
     return response, state, soup
 
 def nextRequest(state, soup, *subcase_info):
-    print(state)
     if subcase_info != ():
         subcase_info = subcase_info[0]
     data = {}
@@ -130,8 +129,9 @@ def nextRequest(state, soup, *subcase_info):
 # select courthouse or defendant and activate loop/loop tracking
         req = requests.Request('POST', 'http://www.lacourt.org/criminalcasesummary/ui/Selection.aspx')
         req.headers.update({'referer': 'http://www.lacourt.org/criminalcasesummary/ui/Selection.aspx'})
-        data.update(formData('subcase', subcase_info))
+#        data.update(formData('subcase', subcase_info))
         data.update(hiddenFormData(soup)) 
+        data.update(formData('subcase', subcase_info))
 # in this case the raw response object is passed to nextRequest as soup
     elif state == 'redirect':
 # GET result page
@@ -168,7 +168,7 @@ def parseResponse(response):
         elif soup.title.get_text(strip=True) == 'Criminal Case Summary':
             state = 'full results'
         else:
-            state = 'start'
+            state = 'new form'
     elif 'updatePanel' in response.text:
         state = 'panel update'
         soup = response
@@ -189,6 +189,7 @@ def eachCaseLoop(state, soup, subcase_info):
 #will this always terminate at selection. even if only one case result?
         req = nextRequest(state, soup, subcase_info)
         timeDelay(.5, 1.5)
+        print(state)
         response = sendNext(req)
         state, soup = parseResponse(response)
     return response, state, soup
@@ -212,7 +213,7 @@ def caseLoop():
     cnx = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     cnx2 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     curA = cnx.cursor()
-    subcase_qry = ("SELECT DISTINCT csn, def, loc, crt FROM subcases")
+    subcase_qry = ("SELECT DISTINCT csn, def, loc, crt FROM subcases where concat(loc, csn, '-', def) not in (select case_numb from case_info) and crt not like '%;%'")
     curA.execute(subcase_qry)
     subc = curA.fetchone()
     while subc is not None:
@@ -226,7 +227,7 @@ def caseLoop():
         else:
             print('error')
             pass
-        print(state)
+#        print(state)
         subc = curA.fetchone()
     cnx.commit()
     cnx.close()

@@ -252,7 +252,7 @@ def caseLoop():
     cnx2 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     cnx3 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     curA = cnx.cursor()
-    case_qry = ("""SELECT COUNT(DISTINCT case_no) FROM 2019_03_30_18_26_29_calendar 
+    case_qry = ("""SELECT DISTINCT case_no FROM 2019_03_30_18_26_29_calendar 
     LEFT JOIN case_info
     ON 2019_03_30_18_26_29_calendar.case_no = case_info.csn 
     LEFT JOIN subcases
@@ -281,13 +281,15 @@ def caseLoop():
 
 def extractChargeInfo(soup):
 #from 'result' state, not 'full result'
-    results = soup.find('table',  id="siteMasterHolder_basicBodyHolder_TabControls_FillChargeInfo_tabCaseList")
+    results = soup.find('table',  id="FillChargeInfo_tabCaseList")
     if results is not None:
         results = results.find_all('td')
     table = []
     for result in results:
         table.append(result.text)
     return table
+
+extractChargeInfo(soup)
 
 def extractCaseInfo(soup):
 #from 'full result'
