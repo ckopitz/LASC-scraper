@@ -167,6 +167,8 @@ def parseResponse(response):
             state = 'results'
         elif soup.title.get_text(strip=True) == 'Criminal Case Summary':
             state = 'full results'
+        elif soup.find('span', id="siteMasterHolder_basicBodyHolder_lbMsg").text == "Case Was not found.":
+            state = "error"
         else:
             state = 'new form'
     elif 'updatePanel' in response.text:
@@ -177,7 +179,7 @@ def parseResponse(response):
         state = 'redirect'
         soup = response
     else:
-        pass
+        state="error"
 # error - not found, 
 # call getToForm, re-evaluate locations, set locations equal to locations not already committed to DB
 #<p class="txtHeader">An Error Has Occured.</p>\r\n    <p class="txtBodySamll">\r\n        An unexpected error occured on our website. The website administrator has been notified.\r\n    </p>
@@ -185,7 +187,7 @@ def parseResponse(response):
 
 def eachCaseLoop(state, soup, subcase_info):
     state = 'new form'
-    while (state != 'full results'):
+    while (state != 'full results' and state!= "error"):
 #will this always terminate at selection. even if only one case result?
         req = nextRequest(state, soup, subcase_info)
         timeDelay(.5, 1.5)
@@ -221,29 +223,33 @@ def caseLoop():
         print("caseLoop")
         print(subcase_info)
         response, state, soup = eachCaseLoop(state, soup, subcase_info)
+        subcase_no = subcase_info[2]+subcase_info[0]+'-'+subcase_info[1]
         if state == 'full results':
-            case_info = extractCaseInfo(soup)
+            case_info = extractCaseInfo(subcase_no, soup)
             saveResult(cnx2, response, case_info)
         else:
             print('error')
-            pass
+            saveResult(cnx2, response, (subcase_no, '', '', '', '', '', ''))
 #        print(state)
         subc = curA.fetchone()
     cnx.commit()
     cnx.close()
     cnx2.close()
 
-def extractCaseInfo(soup):
+def extractCaseInfo(subcase_no, soup):
 #from 'full result'
-    table = [soup.find('div', id="caseNumb").text]
-    results = soup.find('table',  id="FillChargeInfo_tabCaseList")
-    if results is not None:
-        results = results.find_all('td')
-        for result in results:
-            table.append(result.text)
-        out = (table[0], table[1], table[2], table[3], table[4], table[5], table[6]) 
+    if subcase_no == soup.find('div', id="caseNumb").text:
+        table = [soup.find('div', id="caseNumb").text]
+        results = soup.find('table',  id="FillChargeInfo_tabCaseList")
+        if results is not None:
+            results = results.find_all('td')
+            for result in results:
+                table.append(result.text)
+            out = (table[0], table[1], table[2], table[3], table[4], table[5], table[6]) 
+        else:
+            out = (table[0], '', '', '', '', '', '')
     else:
-        out = (table[0], '', '', '', '', '', '')
+        out = (subcase_no, '', '', '', '', '', '')
     return out 
 
 def saveResult(cnx2, response, case_info):

@@ -18,15 +18,14 @@ def countLoop():
     while case is not None:
         print(case[1])
         soup = BeautifulSoup(case[2], "html.parser")
-        charges = extractChargeInfo(soup)
+        charges = extractChargeInfo(case[1], soup)
         saveCounts(cnx2, charges)
         case = curA.fetchone()
     cnx.commit()
     cnx.close()
     cnx2.close()
 
-def extractChargeInfo(soup):
-#from 'result' state, not 'full result'
+def extractChargeInfo(subcase_no, soup):
     results = soup.find('table',  id="FillChargeInfo_tabCaseList")
     if results is not None:
         results = results.find_all('td')
@@ -36,7 +35,10 @@ def extractChargeInfo(soup):
             table.append((soup.find('div', id="caseNumb").text, results[i].text, results[i+1].text, results[i+2].text, results[i+3].text, results[i+4].text, results[i+5].text))
             i+=6
     else:
-        table = [(soup.find('div', id="caseNumb").text, 'NA', 'NA', 'NA', 'NA', 'NA', 'NA')]
+        if soup.find('div', id="caseNumb") is not None:
+            table = [(soup.find('div', id="caseNumb").text, 'NA', 'NA', 'NA', 'NA', 'NA', 'NA')]
+        else:
+            table = [(subcase_no, 'NA', 'NA', 'NA', 'NA', 'NA', 'NA')]
     return table
 
 def saveCounts(cnx2, charges):

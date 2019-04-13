@@ -252,12 +252,7 @@ def caseLoop():
     cnx2 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     cnx3 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     curA = cnx.cursor()
-    case_qry = ("""SELECT DISTINCT case_no FROM 2019_03_30_18_26_29_calendar 
-    LEFT JOIN case_info
-    ON 2019_03_30_18_26_29_calendar.case_no = case_info.csn 
-    LEFT JOIN subcases
-    ON 2019_03_30_18_26_29_calendar.case_no = subcases.csn
-    WHERE case_info.csn IS NULL AND subcases.csn IS NULL""")
+    case_qry = ("""select DISTINCT case_no from 2019_03_30_18_26_29_calendar where case_no not in (select csn from case_info) and case_no not in (select csn from subcases)""")
     curA.execute(case_qry)
     case_no = curA.fetchone()
     while case_no is not None:
