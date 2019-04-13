@@ -179,6 +179,8 @@ def parseResponse(response):
             state = 'blank form'
         elif soup.title.get_text(strip=True) == 'Criminal Case Summary - Online Services - LA Court' and soup.find('div', id="siteMasterHolder_basicBodyHolder_pnlSearch") and response.url == 'http://www.lacourt.org/criminalcasesummary/ui/Index.aspx':
             state = 'new form' 
+        elif soup.find('span', id="siteMasterHolder_basicBodyHolder_lbMsg").text == "Case Was not found.":
+            state = "error"
         elif soup.find('span', id="PlsSelectFromTheList") or soup.find('input', id="siteMasterHolder_basicBodyHolder_caseNumber"):
             state = 'selection'
         elif soup.title.get_text(strip=True) == 'LASC - Criminal Case Summary':
@@ -224,7 +226,7 @@ def caseWorker(state, case_no, soup):
 
 def eachCaseLoop(state, soup, case_no):
     state = 'new form'
-    while (state != 'full results' and state != 'selection'):
+    while (state != 'full results' and state != 'selection' and state!="error"):
 #will this always terminate at selection. even if only one case result?
         req = nextRequest(state, soup, case_no)
         timeDelay(.5, 1.5)
@@ -252,20 +254,22 @@ def caseLoop():
     cnx2 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     cnx3 = mysql.connector.connect(user='root', password='password', database='criminal_case_calendar')
     curA = cnx.cursor()
-    case_qry = ("""select DISTINCT case_no from 2019_03_30_18_26_29_calendar where case_no not in (select csn from case_info) and case_no not in (select csn from subcases)""")
+    case_qry = ("""select DISTINCT case_no, defendant_no, district from 2019_03_30_18_26_29_calendar where case_no not in (select csn from case_info) and case_no not in (select csn from subcases) and SUBSTRING(case_no, 1, 7) not in (select DISTINCT SUBSTRING(case_numb, 4, 7) from case_info) and SUBSTRING(case_no, 1, 7) not in (select DISTINCT SUBSTRING(csn, 1, 7) from subcases)""")
     curA.execute(case_qry)
     case_no = curA.fetchone()
     while case_no is not None:
-        print(case_no[0])
+        case_numb = case_no[2]+case_no[0]+'-'+case_no[1]
+        print(case_numb)
         response, state, soup = eachCaseLoop(state, soup, case_no[0])
         if state == 'full results':
-            case_info = extractCaseInfo(soup)
+            case_info = extractCaseInfo(case_numb, soup)
             saveResult(cnx2, response, case_info)
         elif state == 'selection':
             subcases = extractSubcases(response)
             saveSubcases(cnx3, subcases)
         else:
-            print('error')
+            case_info = extractCaseInfo(case_numb, soup)
+            saveResult(cnx2, response, case_info)
             pass
         print(state)
         case_no = curA.fetchone()
@@ -290,18 +294,24 @@ def extractChargeInfo(soup):
 
 extractChargeInfo(soup)
 
-def extractCaseInfo(soup):
+def extractCaseInfo(subcase_no, soup):
 #from 'full result'
-    table = [soup.find('div', id="caseNumb").text]
-    results = soup.find('table',  id="FillChargeInfo_tabCaseList")
-    if results is not None:
-        results = results.find_all('td')
-        for result in results:
-            table.append(result.text)
-        out = (table[0], table[1], table[2], table[3], table[4], table[5], table[6]) 
+    if soup.find('div', id="caseNumb") is not None:
+        if subcase_no == soup.find('div', id="caseNumb").text:
+            table = [soup.find('div', id="caseNumb").text]
+            results = soup.find('table',  id="FillChargeInfo_tabCaseList")
+            if results is not None:
+                results = results.find_all('td')
+                for result in results:
+                    table.append(result.text)
+                out = (table[0], table[1], table[2], table[3], table[4], table[5], table[6]) 
+            else:
+                out = (table[0], '', '', '', '', '', '')
+        else:
+            out = (subcase_no, '', '', '', '', '', '')            
     else:
-        out = (table[0], '', '', '', '', '', '')
-    return out 
+        out = (subcase_no, '', '', '', '', '', '')
+    return out
 
 def saveResult(cnx2, response, case_info):
     curB = cnx2.cursor()
